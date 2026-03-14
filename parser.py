@@ -2,7 +2,7 @@ import json
 import os
 import traceback
 import anthropic
-from task_store import save_task, snooze_task, unsnooze_task, complete_task, get_tasks_by_status
+from task_store import save_task, snooze_task, unsnooze_task, complete_task, get_tasks_by_status, update_importance
 from triage_engine import triage
 from reminder_scheduler import schedule_triaged_reminders
 
@@ -43,6 +43,8 @@ def handler(event, context):
                 complete_task(user_id, task_id, body.get("actual_minutes", 0))
             elif new_status == "pending":
                 unsnooze_task(user_id, task_id)
+            if "importance" in body:
+                update_importance(user_id, task_id, int(body["importance"]))
             return {"statusCode": 200, "body": json.dumps({"updated": task_id})}
 
         user_input = body.get("input") or body.get("text_input")
@@ -56,11 +58,15 @@ def handler(event, context):
             max_tokens=1024,
             thinking={"type": "adaptive"},
             system=(
-                "You are an executive function coach. Analyze the input. "
-                "1. Separate multiple tasks. "
+                "You are an executive function coach for someone with ADHD. Analyze the input and extract tasks. "
+                "For each task: "
+                "1. Separate multiple tasks mentioned. "
                 "2. Assign 'EnergyLevel' (Low/Medium/High). "
-                "3. If a task is vague (e.g., 'Clean house'), set 'RequiresBreakdown' to True. "
-                "4. Output strictly in JSON."
+                "3. If vague (e.g. 'clean house'), set 'RequiresBreakdown' to true. "
+                "4. Extract 'DueDate' if mentioned (ISO 8601 format, e.g. '2026-03-15T17:00:00'). Leave null if not mentioned. "
+                "5. Assign 'ImportanceScore' 1-5 based on urgency and consequence (5=critical, 1=nice-to-have). "
+                "6. Estimate 'EstimatedMinutes'. "
+                f"Current datetime: {__import__('datetime').datetime.utcnow().isoformat()}"
             ),
             messages=[{"role": "user", "content": user_input}],
             output_config={
@@ -77,9 +83,11 @@ def handler(event, context):
                                         "name": {"type": "string"},
                                         "EnergyLevel": {"type": "string", "enum": ["Low", "Medium", "High"]},
                                         "RequiresBreakdown": {"type": "boolean"},
-                                        "EstimatedMinutes": {"type": "integer"}
+                                        "EstimatedMinutes": {"type": "integer"},
+                                        "DueDate": {"type": "string"},
+                                        "ImportanceScore": {"type": "integer"}
                                     },
-                                    "required": ["name", "EnergyLevel", "RequiresBreakdown"],
+                                    "required": ["name", "EnergyLevel", "RequiresBreakdown", "ImportanceScore"],
                                     "additionalProperties": False
                                 }
                             }
@@ -114,6 +122,8 @@ def handler(event, context):
                         "priority_score": t["priority_score"],
                         "friction_score": t["friction_score"],
                         "energy": t["EnergyLevel"],
+                        "importance": t.get("ImportanceScore", 3),
+                        "due_date": t.get("DueDate"),
                     }
                     for t in triaged
                 ],

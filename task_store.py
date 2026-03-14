@@ -23,6 +23,8 @@ def save_task(user_id: str, task: dict) -> str:
         "EnergyLevel": task["EnergyLevel"],
         "RequiresBreakdown": task["RequiresBreakdown"],
         "EstimatedMinutes": task.get("EstimatedMinutes"),
+        "ImportanceScore": task.get("ImportanceScore", 3),
+        "DueDate": task.get("DueDate"),
         "SnoozeCount": 0,
         "ActualMinutes": None,
         "CreatedAt": datetime.now(timezone.utc).isoformat(),
@@ -66,6 +68,15 @@ def snooze_task(user_id: str, task_id: str):
         UpdateExpression="SET #s = :snoozed ADD SnoozeCount :one",
         ExpressionAttributeNames={"#s": "Status"},
         ExpressionAttributeValues={":snoozed": "snoozed", ":one": 1},
+    )
+
+
+def update_importance(user_id: str, task_id: str, importance: int):
+    """Updates the user-assigned importance score (1-5)."""
+    table.update_item(
+        Key={"UserId": user_id, "TaskId": task_id},
+        UpdateExpression="SET ImportanceScore = :i",
+        ExpressionAttributeValues={":i": importance},
     )
 
 

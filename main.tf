@@ -94,6 +94,7 @@ resource "aws_lambda_function" "task_parser" {
   handler       = "parser.handler"
   runtime       = "python3.11"
   filename      = "parser.zip"
+  timeout       = 60
 
   environment {
     variables = {

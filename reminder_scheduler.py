@@ -17,6 +17,11 @@ def schedule_reminder(user_id: str, task_id: str, task_name: str, delay_minutes:
     fire_at = datetime.now(timezone.utc) + timedelta(minutes=delay_minutes)
     schedule_name = f"reminder-{task_id}"
 
+    try:
+        scheduler.delete_schedule(Name=schedule_name, GroupName="adhd-reminders")
+    except Exception:
+        pass
+
     scheduler.create_schedule(
         Name=schedule_name,
         GroupName="adhd-reminders",

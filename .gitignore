@@ -1,0 +1,6 @@
+
+.terraform/
+terraform-provider-*
+*.exe
+lambda_pkg/
+parser.zip

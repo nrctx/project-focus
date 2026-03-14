@@ -1,8 +1,18 @@
 import json
 import os
 import traceback
+from decimal import Decimal
+
+class _DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super().default(obj)
+
+def _dumps(obj):
+    return json.dumps(obj, cls=_DecimalEncoder)
 import anthropic
-from task_store import save_task, snooze_task, unsnooze_task, complete_task, get_tasks_by_status, update_importance
+from task_store import save_task, snooze_task, unsnooze_task, complete_task, get_tasks_by_status, update_importance, clear_all_tasks
 from triage_engine import triage
 from reminder_scheduler import schedule_triaged_reminders
 
@@ -23,11 +33,16 @@ def handler(event, context):
 
         user_id = body.get("user_id") or (event.get("queryStringParameters") or {}).get("user_id", "anonymous")
 
+        # DELETE /tasks — clear all tasks for user
+        if method == "DELETE" and path == "/tasks":
+            clear_all_tasks(user_id)
+            return {"statusCode": 200, "body": _dumps({"cleared": True})}
+
         # GET /tasks — return tasks by status
         if method == "GET" and path == "/tasks":
             status = (event.get("queryStringParameters") or {}).get("status", "pending")
             tasks = get_tasks_by_status(user_id, status)
-            return {"statusCode": 200, "body": json.dumps({"tasks": [
+            return {"statusCode": 200, "body": _dumps({"tasks": [
                 {"task_id": t["TaskId"], "name": t["Name"], "status": t["Status"],
                  "energy": t["EnergyLevel"], "snooze_count": t.get("SnoozeCount", 0),
                  "created_at": t["CreatedAt"]}
@@ -45,12 +60,12 @@ def handler(event, context):
                 unsnooze_task(user_id, task_id)
             if "importance" in body:
                 update_importance(user_id, task_id, int(body["importance"]))
-            return {"statusCode": 200, "body": json.dumps({"updated": task_id})}
+            return {"statusCode": 200, "body": _dumps({"updated": task_id})}
 
         user_input = body.get("input") or body.get("text_input")
 
         if not user_input:
-            return {"statusCode": 400, "body": json.dumps({"error": "input is required"})}
+            return {"statusCode": 400, "body": _dumps({"error": "input is required"})}
 
         # Step 1: Parse natural language into structured tasks
         response = client.messages.create(
@@ -113,7 +128,7 @@ def handler(event, context):
 
         return {
             "statusCode": 200,
-            "body": json.dumps({
+            "body": _dumps({
                 "saved": task_ids,
                 "triaged_tasks": [
                     {
@@ -132,5 +147,5 @@ def handler(event, context):
 
     except Exception as e:
         traceback.print_exc()
-        return {"statusCode": 500, "body": json.dumps({"error": str(e)})}
+        return {"statusCode": 500, "body": _dumps({"error": str(e)})}
 

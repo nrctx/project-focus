@@ -90,6 +90,17 @@ def unsnooze_task(user_id: str, task_id: str):
     )
 
 
+def clear_all_tasks(user_id: str):
+    """Deletes all tasks for a user. For testing/reset purposes."""
+    response = table.query(
+        KeyConditionExpression="UserId = :uid",
+        ExpressionAttributeValues={":uid": user_id},
+    )
+    with table.batch_writer() as batch:
+        for item in response.get("Items", []):
+            batch.delete_item(Key={"UserId": user_id, "TaskId": item["TaskId"]})
+
+
 def get_tasks_by_status(user_id: str, status: str) -> list:
     """Returns all tasks for a user filtered by status."""
     response = table.query(

@@ -1,5 +1,18 @@
 # main.tf - Infrastructure for ADHD Reminder Backend
 
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"
+}
+
 resource "aws_dynamodb_table" "tasks_table" {
   name           = "UserTasks"
   billing_mode   = "PAY_PER_REQUEST"

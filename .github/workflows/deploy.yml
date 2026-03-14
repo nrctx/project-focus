@@ -40,7 +40,10 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Package Lambda
-        run: zip parser.zip parser.py habit_engine.py task_store.py triage_engine.py reminder_scheduler.py
+        run: |
+          pip install anthropic -t lambda_pkg/
+          cp parser.py habit_engine.py task_store.py triage_engine.py reminder_scheduler.py lambda_pkg/
+          cd lambda_pkg && zip -r ../parser.zip . && cd ..
 
       - name: Terraform Init
         env:

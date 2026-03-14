@@ -3,7 +3,7 @@ import json
 import boto3
 from datetime import datetime, timezone, timedelta
 
-scheduler = boto3.client("scheduler")
+scheduler = boto3.client("scheduler", region_name=os.environ.get("AWS_REGION", "us-east-1"))
 SNS_TOPIC_ARN = os.environ.get("REMINDER_TOPIC_ARN")
 SCHEDULER_ROLE_ARN = os.environ.get("SCHEDULER_ROLE_ARN")
 

@@ -59,13 +59,35 @@ def complete_task(user_id: str, task_id: str, actual_minutes: int):
 
 def snooze_task(user_id: str, task_id: str):
     """
-    Increments the snooze counter. The habit engine uses this to detect avoidance.
+    Increments the snooze counter and sets status to snoozed.
     """
     table.update_item(
         Key={"UserId": user_id, "TaskId": task_id},
-        UpdateExpression="ADD SnoozeCount :one",
-        ExpressionAttributeValues={":one": 1},
+        UpdateExpression="SET #s = :snoozed ADD SnoozeCount :one",
+        ExpressionAttributeNames={"#s": "Status"},
+        ExpressionAttributeValues={":snoozed": "snoozed", ":one": 1},
     )
+
+
+def unsnooze_task(user_id: str, task_id: str):
+    """Sets a snoozed task back to pending."""
+    table.update_item(
+        Key={"UserId": user_id, "TaskId": task_id},
+        UpdateExpression="SET #s = :pending",
+        ExpressionAttributeNames={"#s": "Status"},
+        ExpressionAttributeValues={":pending": "pending"},
+    )
+
+
+def get_tasks_by_status(user_id: str, status: str) -> list:
+    """Returns all tasks for a user filtered by status."""
+    response = table.query(
+        KeyConditionExpression="UserId = :uid",
+        FilterExpression="#s = :status",
+        ExpressionAttributeNames={"#s": "Status"},
+        ExpressionAttributeValues={":uid": user_id, ":status": status},
+    )
+    return sorted(response.get("Items", []), key=lambda t: t["CreatedAt"])
 
 
 def get_task_history(user_id: str, limit: int = 10) -> list:

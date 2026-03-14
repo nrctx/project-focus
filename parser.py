@@ -2,7 +2,7 @@ import json
 import os
 import traceback
 import anthropic
-from task_store import save_task
+from task_store import save_task, snooze_task, unsnooze_task, complete_task, get_tasks_by_status
 from triage_engine import triage
 from reminder_scheduler import schedule_triaged_reminders
 
@@ -11,12 +11,40 @@ client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
 def handler(event, context):
     try:
+        method = event.get("requestContext", {}).get("http", {}).get("method", "POST")
+        path = event.get("rawPath", "/tasks")
+        path_params = event.get("pathParameters") or {}
+        task_id = path_params.get("taskId")
+
         try:
             body = json.loads(event.get("body") or "{}")
         except Exception:
             body = event
 
-        user_id = body.get("user_id", "anonymous")
+        user_id = body.get("user_id") or (event.get("queryStringParameters") or {}).get("user_id", "anonymous")
+
+        # GET /tasks — return tasks by status
+        if method == "GET" and path == "/tasks":
+            status = (event.get("queryStringParameters") or {}).get("status", "pending")
+            tasks = get_tasks_by_status(user_id, status)
+            return {"statusCode": 200, "body": json.dumps({"tasks": [
+                {"task_id": t["TaskId"], "name": t["Name"], "status": t["Status"],
+                 "energy": t["EnergyLevel"], "snooze_count": t.get("SnoozeCount", 0),
+                 "created_at": t["CreatedAt"]}
+                for t in tasks
+            ]})}
+
+        # PATCH /tasks/{taskId} — update status
+        if method == "PATCH" and task_id:
+            new_status = body.get("status")
+            if new_status == "snoozed":
+                snooze_task(user_id, task_id)
+            elif new_status == "done":
+                complete_task(user_id, task_id, body.get("actual_minutes", 0))
+            elif new_status == "pending":
+                unsnooze_task(user_id, task_id)
+            return {"statusCode": 200, "body": json.dumps({"updated": task_id})}
+
         user_input = body.get("input") or body.get("text_input")
 
         if not user_input:

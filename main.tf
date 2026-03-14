@@ -118,7 +118,7 @@ resource "aws_apigatewayv2_api" "http_api" {
 
   cors_configuration {
     allow_origins = ["*"]
-    allow_methods = ["POST", "GET"]
+    allow_methods = ["POST", "GET", "PATCH"]
     allow_headers = ["Content-Type"]
   }
 }
@@ -133,6 +133,18 @@ resource "aws_apigatewayv2_integration" "lambda_integration" {
 resource "aws_apigatewayv2_route" "parse_tasks" {
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "POST /tasks"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "get_tasks" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /tasks"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
+}
+
+resource "aws_apigatewayv2_route" "update_task" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "PATCH /tasks/{taskId}"
   target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 

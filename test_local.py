@@ -50,8 +50,10 @@ class TestPipeline(unittest.TestCase):
         from parser import handler
 
         event = {
-            "user_id": "test-user",
-            "text_input": "I need to email my boss, clean the house, and buy groceries",
+            "body": json.dumps({
+                "user_id": "test-user",
+                "input": "I need to email my boss, clean the house, and buy groceries",
+            })
         }
 
         result = handler(event, {})
@@ -60,16 +62,16 @@ class TestPipeline(unittest.TestCase):
         print(json.dumps(result, indent=2))
 
         self.assertEqual(result["statusCode"], 200)
-        body = result["body"]
+        body = json.loads(result["body"])
 
         # Tasks were saved
         self.assertTrue(len(body["saved"]) > 0)
         print(f"\nSaved {len(body['saved'])} task(s)")
 
         # Triage returned ranked results
-        self.assertTrue(len(body["triaged"]) > 0)
+        self.assertTrue(len(body["triaged_tasks"]) > 0)
         print("\nTriaged order:")
-        for t in body["triaged"]:
+        for t in body["triaged_tasks"]:
             print(f"  [{t['priority_score']}] {t['name']} ({t['energy']})")
 
         # Schedules were created (capped at 3)

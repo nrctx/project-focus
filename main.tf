@@ -95,8 +95,9 @@ resource "aws_lambda_function" "task_parser" {
   role          = aws_iam_role.lambda_exec.arn
   handler       = "parser.handler"
   runtime       = "python3.11"
-  filename      = "parser.zip"
-  timeout       = 60
+  filename         = "parser.zip"
+  source_code_hash = filebase64sha256("parser.zip")
+  timeout          = 60
 
   environment {
     variables = {
